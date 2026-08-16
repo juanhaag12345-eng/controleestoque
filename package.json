@@ -1,0 +1,16 @@
+{
+  "name": "estoque-em-dia",
+  "version": "1.0.0",
+  "description": "Leitor de notas fiscais por foto com IA e dashboard de estoque",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
