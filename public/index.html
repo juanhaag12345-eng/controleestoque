@@ -56,6 +56,9 @@
   .btn:disabled { opacity: .55; cursor: not-allowed; }
   .btn-danger-text { background: transparent; color: var(--ink-dim); font-size: 12px; padding: 4px 0; }
   img.preview { max-height: 280px; width: 100%; object-fit: contain; border-radius: 10px; margin-bottom: 14px; }
+  #previewWrap { position: relative; }
+  .remove-photo-x { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; border: none; border-radius: 50%; background: rgba(29,42,38,0.6); color: #fff; font-size: 15px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .remove-photo-x:hover { background: rgba(29,42,38,0.8); }
   .alert { border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-top: 14px; text-align: left; }
   .alert-error { background: var(--red-pale); color: var(--red); }
   .alert-warn { background: var(--amber-pale); color: #8A5A1E; }
@@ -121,9 +124,6 @@
         <button class="btn btn-primary hidden" id="analyzeBtn" onclick="analyzeImage()">🔎 Analisar nota</button>
       </div>
 
-            <div class="center">
-                      <button class="btn-danger-text hidden" id="removePhotoBtn" onclick="removePhoto()">🗑 Remover foto adicionada</button>
-                    </div>
       <div id="errorAlert" class="alert alert-error hidden"></div>
     </div>
 
@@ -215,10 +215,9 @@ function handleFile(file) {
   selectedFile = file;
   hideError();
   const url = URL.createObjectURL(file);
-  document.getElementById('previewWrap').innerHTML = '<img class="preview" src="' + url + '" />';
+  document.getElementById('previewWrap').innerHTML = '<img class="preview" src="' + url + '" /><button class="remove-photo-x" onclick="removePhoto()" aria-label="Remover foto">✕</button>';
   document.getElementById('placeholderWrap').classList.add('hidden');
   document.getElementById('analyzeBtn').classList.remove('hidden');
-  document.getElementById('removePhotoBtn').classList.remove('hidden');
 }
 
 function removePhoto() {
@@ -227,7 +226,6 @@ function removePhoto() {
   document.getElementById('previewWrap').innerHTML = '';
   document.getElementById('placeholderWrap').classList.remove('hidden');
   document.getElementById('analyzeBtn').classList.add('hidden');
-  document.getElementById('removePhotoBtn').classList.add('hidden');
   document.getElementById('cameraInput').value = '';
   document.getElementById('galleryInput').value = '';
 }
@@ -325,7 +323,6 @@ function discardReview() {
   document.getElementById('previewWrap').innerHTML = '';
   document.getElementById('placeholderWrap').classList.remove('hidden');
   document.getElementById('analyzeBtn').classList.add('hidden');
-  document.getElementById('removePhotoBtn').classList.add('hidden');
   document.getElementById('cameraInput').value = '';
   document.getElementById('galleryInput').value = '';
   document.getElementById('reviewCard').classList.add('hidden');
