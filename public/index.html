@@ -59,6 +59,8 @@
   #previewWrap { position: relative; }
   .remove-photo-x { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; border: none; border-radius: 50%; background: rgba(29,42,38,0.6); color: #fff; font-size: 15px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
   .remove-photo-x:hover { background: rgba(29,42,38,0.8); }
+  .pdf-preview { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 34px 0; background: var(--paper-dim); border-radius: 10px; margin-bottom: 14px; }
+  .pdf-name { font-size: 12px; color: var(--ink-dim); word-break: break-all; padding: 0 20px; }
   .alert { border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-top: 14px; text-align: left; }
   .alert-error { background: var(--red-pale); color: var(--red); }
   .alert-warn { background: var(--amber-pale); color: #8A5A1E; }
@@ -111,16 +113,16 @@
       <div id="placeholderWrap">
         <div style="padding: 24px 0; color: var(--ink-dim);">
           <div style="font-size: 30px;">📷</div>
-          <div style="font-size: 13px; margin-top: 10px;">Tire uma foto ou envie a imagem da nota fiscal</div>
+          <div style="font-size: 13px; margin-top: 10px;">Tire uma foto ou envie a imagem ou PDF da nota fiscal</div>
         </div>
       </div>
 
       <input type="file" id="cameraInput" accept="image/*" capture="environment" class="hidden" />
-      <input type="file" id="galleryInput" accept="image/*" class="hidden" />
+      <input type="file" id="galleryInput" accept="image/*,application/pdf" class="hidden" />
 
       <div class="row">
         <button class="btn btn-camera" onclick="document.getElementById('cameraInput').click()">📷 Tirar foto</button>
-        <button class="btn btn-secondary" onclick="document.getElementById('galleryInput').click()">⬆ Escolher da galeria</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('galleryInput').click()">⬆ Escolher arquivo (foto ou PDF)</button>
         <button class="btn btn-primary hidden" id="analyzeBtn" onclick="analyzeImage()">🔎 Analisar nota</button>
       </div>
 
@@ -208,14 +210,24 @@ function fileToBase64(file) {
 
 function handleFile(file) {
   if (!file) return;
+  const isPdf = file.type === 'application/pdf';
+  const isImage = file.type.startsWith('image/');
+  if (!isPdf && !isImage) {
+    showError('Formato não suportado. Envie uma imagem ou um PDF.');
+    return;
+  }
   if (file.size > 10 * 1024 * 1024) {
-    showError('Imagem muito grande. Envie um arquivo de até 10MB.');
+    showError('Arquivo muito grande. Envie um arquivo de até 10MB.');
     return;
   }
   selectedFile = file;
   hideError();
-  const url = URL.createObjectURL(file);
-  document.getElementById('previewWrap').innerHTML = '<img class="preview" src="' + url + '" /><button class="remove-photo-x" onclick="removePhoto()" aria-label="Remover foto">✕</button>';
+  if (isPdf) {
+    document.getElementById('previewWrap').innerHTML = '<div class="pdf-preview"><span style="font-size:34px;">📄</span><span class="pdf-name">' + file.name.replace(/</g, '&lt;') + '</span></div><button class="remove-photo-x" onclick="removePhoto()" aria-label="Remover arquivo">✕</button>';
+  } else {
+    const url = URL.createObjectURL(file);
+    document.getElementById('previewWrap').innerHTML = '<img class="preview" src="' + url + '" /><button class="remove-photo-x" onclick="removePhoto()" aria-label="Remover foto">✕</button>';
+  }
   document.getElementById('placeholderWrap').classList.add('hidden');
   document.getElementById('analyzeBtn').classList.remove('hidden');
 }
@@ -268,7 +280,7 @@ async function analyzeImage() {
     openReview();
   } catch (err) {
     console.error(err);
-    showError('Não consegui ler essa nota. Tente uma foto mais nítida, bem enquadrada e com boa luz.');
+    showError('Não consegui ler essa nota. Tente uma foto mais nítida, bem enquadrada e com boa luz, ou um PDF legível.');
   } finally {
     btn.disabled = false;
     btn.innerHTML = '🔎 Analisar nota';
