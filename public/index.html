@@ -121,6 +121,9 @@
         <button class="btn btn-primary hidden" id="analyzeBtn" onclick="analyzeImage()">🔎 Analisar nota</button>
       </div>
 
+            <div class="center">
+                      <button class="btn-danger-text hidden" id="removePhotoBtn" onclick="removePhoto()">🗑 Remover foto adicionada</button>
+                    </div>
       <div id="errorAlert" class="alert alert-error hidden"></div>
     </div>
 
@@ -205,8 +208,8 @@ function fileToBase64(file) {
 
 function handleFile(file) {
   if (!file) return;
-  if (file.size > 6 * 1024 * 1024) {
-    showError('Imagem muito grande. Envie um arquivo de até 6MB.');
+  if (file.size > 10 * 1024 * 1024) {
+    showError('Imagem muito grande. Envie um arquivo de até 10MB.');
     return;
   }
   selectedFile = file;
@@ -215,6 +218,18 @@ function handleFile(file) {
   document.getElementById('previewWrap').innerHTML = '<img class="preview" src="' + url + '" />';
   document.getElementById('placeholderWrap').classList.add('hidden');
   document.getElementById('analyzeBtn').classList.remove('hidden');
+  document.getElementById('removePhotoBtn').classList.remove('hidden');
+}
+
+function removePhoto() {
+  selectedFile = null;
+  hideError();
+  document.getElementById('previewWrap').innerHTML = '';
+  document.getElementById('placeholderWrap').classList.remove('hidden');
+  document.getElementById('analyzeBtn').classList.add('hidden');
+  document.getElementById('removePhotoBtn').classList.add('hidden');
+  document.getElementById('cameraInput').value = '';
+  document.getElementById('galleryInput').value = '';
 }
 
 document.getElementById('cameraInput').addEventListener('change', (e) => handleFile(e.target.files[0]));
@@ -310,6 +325,9 @@ function discardReview() {
   document.getElementById('previewWrap').innerHTML = '';
   document.getElementById('placeholderWrap').classList.remove('hidden');
   document.getElementById('analyzeBtn').classList.add('hidden');
+  document.getElementById('removePhotoBtn').classList.add('hidden');
+  document.getElementById('cameraInput').value = '';
+  document.getElementById('galleryInput').value = '';
   document.getElementById('reviewCard').classList.add('hidden');
   document.getElementById('captureCard').classList.remove('hidden');
 }
