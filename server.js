@@ -23,8 +23,8 @@ async function writeData(data) {
   await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
 }
 
-const EXTRACTION_PROMPT = `Você é um sistema de extração de dados de notas fiscais (NF-e) brasileiras a partir de imagens.
-Analise a imagem da nota fiscal e extraia os dados. Responda APENAS com um objeto JSON válido, sem markdown, sem texto antes ou depois, no formato exato:
+const EXTRACTION_PROMPT = `Você é um sistema de extração de dados de notas fiscais (NF-e) brasileiras a partir de imagens ou arquivos PDF.
+Analise a imagem ou o PDF da nota fiscal e extraia os dados. Responda APENAS com um objeto JSON válido, sem markdown, sem texto antes ou depois, no formato exato:
 {"fornecedor":"nome do fornecedor ou emitente","data":"data de emissão se visível, senão string vazia","itens":[{"produto":"nome do produto","quantidade":numero,"valor_unitario":numero,"valor_total":numero}],"valor_total_nota":numero,"observacoes":"qualquer ressalva sobre itens ilegíveis ou ambíguos, ou string vazia"}
 Use ponto decimal nos números (nunca vírgula). Se algum campo não estiver visível na imagem, use 0 para números ou string vazia para texto. Não invente itens que não estejam na imagem.`;
 
@@ -36,10 +36,15 @@ app.get("/api/data", async (req, res) => {
 app.post("/api/analyze", async (req, res) => {
   try {
     const { imageBase64, mimeType } = req.body;
-    if (!imageBase64) return res.status(400).json({ error: "Imagem não enviada" });
+    if (!imageBase64) return res.status(400).json({ error: "Arquivo não enviado" });
     if (!process.env.ANTHROPIC_API_KEY) {
       return res.status(500).json({ error: "ANTHROPIC_API_KEY não configurada no servidor. Adicione essa variável de ambiente em Railway." });
     }
+
+    const isPdf = mimeType === "application/pdf";
+    const fileBlock = isPdf
+      ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: imageBase64 } }
+      : { type: "image", source: { type: "base64", media_type: mimeType || "image/jpeg", data: imageBase64 } };
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -55,7 +60,7 @@ app.post("/api/analyze", async (req, res) => {
           {
             role: "user",
             content: [
-              { type: "image", source: { type: "base64", media_type: mimeType || "image/jpeg", data: imageBase64 } },
+              fileBlock,
               { type: "text", text: EXTRACTION_PROMPT },
             ],
           },
