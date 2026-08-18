@@ -25,8 +25,9 @@ async function writeData(data) {
 
 const EXTRACTION_PROMPT = `Você é um sistema de extração de dados de notas fiscais (NF-e) brasileiras a partir de imagens ou arquivos PDF.
 Analise a imagem ou o PDF da nota fiscal e extraia os dados. Responda APENAS com um objeto JSON válido, sem markdown, sem texto antes ou depois, no formato exato:
-{"fornecedor":"nome do fornecedor ou emitente","data":"data de emissão se visível, senão string vazia","itens":[{"produto":"nome do produto","quantidade":numero,"valor_unitario":numero,"valor_total":numero,"unidades_por_embalagem":numero,"valor_unidade":numero}],"valor_total_nota":numero,"observacoes":"qualquer ressalva sobre itens ilegíveis ou ambíguos, ou string vazia"}
+{"fornecedor":"nome do fornecedor ou emitente","numero_nota":"número da nota fiscal (NF-e) se visível, senão string vazia","data":"data de emissão se visível, senão string vazia","itens":[{"produto":"nome do produto","quantidade":numero,"valor_unitario":numero,"valor_total":numero,"unidades_por_embalagem":numero,"valor_unidade":numero}],"valor_total_nota":numero,"observacoes":"qualquer ressalva sobre itens ilegíveis ou ambíguos, ou string vazia"}
 Preste atenção especial à descrição de cada produto: se ela indicar quantidade por embalagem, caixa ou pacote (ex.: "C/30", "CX 12", "PCT C/24", "C/6 UN", "12X1UN"), extraia esse número em "unidades_por_embalagem". Se a descrição não indicar essa informação, use 1. Calcule "valor_unidade" dividindo "valor_unitario" pelo número de "unidades_por_embalagem" (se unidades_por_embalagem for 1, valor_unidade é igual a valor_unitario).
+Procure o número da nota fiscal (geralmente identificado como "Nº", "Número", "NF-e Nº" ou próximo ao código de barras/chave de acesso) e extraia em "numero_nota". Se não encontrar, use string vazia.
 Use ponto decimal nos números (nunca vírgula). Se algum campo não estiver visível na imagem, use 0 para números ou string vazia para texto. Não invente itens que não estejam na imagem.`;
 
 app.get("/api/data", async (req, res) => {
@@ -89,7 +90,7 @@ app.post("/api/analyze", async (req, res) => {
 
 app.post("/api/confirm", async (req, res) => {
   try {
-    const { fornecedor, data: dataNota, itens } = req.body;
+    const { fornecedor, numeroNota, data: dataNota, itens } = req.body;
     if (!Array.isArray(itens)) return res.status(400).json({ error: "Lista de itens inválida" });
 
     const store = await readData();
@@ -113,6 +114,7 @@ app.post("/api/confirm", async (req, res) => {
     const invoice = {
       id: "inv_" + Date.now(),
       fornecedor: fornecedor || "Fornecedor não identificado",
+      numeroNota: numeroNota || "",
       data: dataNota || "",
       itens,
       valorTotal: itens.reduce((a, i) => a + (Number(i.valor_total) || 0), 0),
