@@ -25,7 +25,8 @@ async function writeData(data) {
 
 const EXTRACTION_PROMPT = `Você é um sistema de extração de dados de notas fiscais (NF-e) brasileiras a partir de imagens ou arquivos PDF.
 Analise a imagem ou o PDF da nota fiscal e extraia os dados. Responda APENAS com um objeto JSON válido, sem markdown, sem texto antes ou depois, no formato exato:
-{"fornecedor":"nome do fornecedor ou emitente","data":"data de emissão se visível, senão string vazia","itens":[{"produto":"nome do produto","quantidade":numero,"valor_unitario":numero,"valor_total":numero}],"valor_total_nota":numero,"observacoes":"qualquer ressalva sobre itens ilegíveis ou ambíguos, ou string vazia"}
+{"fornecedor":"nome do fornecedor ou emitente","data":"data de emissão se visível, senão string vazia","itens":[{"produto":"nome do produto","quantidade":numero,"valor_unitario":numero,"valor_total":numero,"unidades_por_embalagem":numero,"valor_unidade":numero}],"valor_total_nota":numero,"observacoes":"qualquer ressalva sobre itens ilegíveis ou ambíguos, ou string vazia"}
+Preste atenção especial à descrição de cada produto: se ela indicar quantidade por embalagem, caixa ou pacote (ex.: "C/30", "CX 12", "PCT C/24", "C/6 UN", "12X1UN"), extraia esse número em "unidades_por_embalagem". Se a descrição não indicar essa informação, use 1. Calcule "valor_unidade" dividindo "valor_unitario" pelo número de "unidades_por_embalagem" (se unidades_por_embalagem for 1, valor_unidade é igual a valor_unitario).
 Use ponto decimal nos números (nunca vírgula). Se algum campo não estiver visível na imagem, use 0 para números ou string vazia para texto. Não invente itens que não estejam na imagem.`;
 
 app.get("/api/data", async (req, res) => {
@@ -96,11 +97,15 @@ app.post("/api/confirm", async (req, res) => {
       const key = (it.produto || "").trim().toLowerCase();
       if (!key) return;
       const existing = store.products[key];
+      const unidadesPorEmbalagem = Number(it.unidades_por_embalagem) || 1;
+      const valorUnitario = Number(it.valor_unitario) || 0;
+      const valorUnidade = Number(it.valor_unidade) || (valorUnitario / unidadesPorEmbalagem) || 0;
       store.products[key] = {
         name: it.produto,
         unit: "un",
         stock: (existing?.stock || 0) + (Number(it.quantidade) || 0),
-        lastCost: Number(it.valor_unitario) || 0,
+        lastCost: valorUnitario,
+        lastUnitValue: valorUnidade,
         lastUpdated: new Date().toLocaleString("pt-BR"),
       };
     });
