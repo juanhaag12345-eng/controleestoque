@@ -68,6 +68,12 @@
   .search-icon { position: absolute; top: 50%; left: 11px; transform: translateY(-50%); font-size: 14px; color: var(--ink-dim); pointer-events: none; }
   .search-clear { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); border: none; background: transparent; color: var(--ink-dim); cursor: pointer; font-size: 13px; padding: 6px; display: none; line-height: 1; }
   .search-clear:hover { color: var(--ink); }
+  .inv-items { margin-top: 10px; }
+  .inv-item-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px dashed var(--line); font-size: 12px; color: var(--ink-dim); }
+  .inv-item-row:first-child { border-top: none; }
+  .inv-item-name { flex: 1; color: var(--ink); }
+  .inv-item-qty { flex-shrink: 0; text-align: right; }
+  .inv-item-val { flex-shrink: 0; width: 76px; text-align: right; }
   .alert { border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-top: 14px; text-align: left; }
   .alert-error { background: var(--red-pale); color: var(--red); }
   .alert-warn { background: var(--amber-pale); color: #8A5A1E; }
@@ -154,6 +160,11 @@
         </div>
       </div>
 
+      <div style="margin-bottom: 14px;">
+        <label class="field-label">Número da NF (opcional)</label>
+        <input class="input" id="fldNumeroNota" placeholder="Ex: 123456" />
+      </div>
+
       <div id="obsAlert" class="alert alert-warn hidden"></div>
 
       <div id="itemsList"></div>
@@ -190,6 +201,11 @@
     <div class="card" id="productsListCard" style="margin-bottom: 22px;"></div>
 
     <h2 class="section-title">Notas processadas</h2>
+    <div class="search-wrap">
+      <span class="search-icon">🔎</span>
+      <input class="input" id="invoiceSearchInput" oninput="onInvoiceSearchInput()" placeholder="Buscar por distribuidor ou número da NF..." autocomplete="off" />
+      <button class="search-clear" id="invoiceSearchClearBtn" onclick="clearInvoiceSearch()" aria-label="Limpar busca">✕</button>
+    </div>
     <div class="card" id="invoicesListCard"></div>
 
     <div class="center">
@@ -204,6 +220,7 @@
 let selectedFile = null;
 let extracted = null;
 let allProducts = [];
+let allInvoices = [];
 
 function setTab(tab) {
   document.getElementById('tabNova').classList.toggle('hidden', tab !== 'nova');
@@ -336,6 +353,7 @@ function openReview() {
   document.getElementById('reviewCard').classList.remove('hidden');
   document.getElementById('fldFornecedor').value = extracted.fornecedor || '';
   document.getElementById('fldData').value = extracted.data || '';
+  document.getElementById('fldNumeroNota').value = extracted.numero_nota || '';
   const obsEl = document.getElementById('obsAlert');
   if (extracted.observacoes) {
     obsEl.textContent = extracted.observacoes;
@@ -392,6 +410,7 @@ async function confirmInvoice() {
   try {
     const payload = {
       fornecedor: document.getElementById('fldFornecedor').value,
+      numeroNota: document.getElementById('fldNumeroNota').value,
       data: document.getElementById('fldData').value,
       itens: extracted.itens,
     };
@@ -467,6 +486,76 @@ function clearSearch() {
   input.focus();
 }
 
+function filterInvoices(query) {
+  const q = normalizeText(query);
+  if (!q) return allInvoices;
+  const terms = q.split(/\s+/).filter(Boolean);
+  return allInvoices.filter((inv) => {
+    const haystack = normalizeText((inv.fornecedor || '') + ' ' + (inv.numeroNota || ''));
+    return terms.every((t) => haystack.includes(t));
+  });
+}
+
+function renderInvoices(list) {
+  const invCard = document.getElementById('invoicesListCard');
+  const searchInput = document.getElementById('invoiceSearchInput');
+  const hasQuery = !!(searchInput && searchInput.value.trim());
+
+  if (!allInvoices.length) {
+    invCard.innerHTML = '<div class="empty">Nenhuma nota processada ainda.</div>';
+    return;
+  }
+  if (!list.length) {
+    const term = searchInput ? searchInput.value.trim().replace(/</g, '&lt;') : '';
+    invCard.innerHTML = `<div class="empty">Nenhuma nota encontrada para "${term}".</div>`;
+    return;
+  }
+
+  invCard.innerHTML = list.map((inv) => {
+    const subParts = [`${inv.itens.length} itens`];
+    if (inv.numeroNota) subParts.push(`NF ${inv.numeroNota}`);
+    subParts.push(`processada em ${inv.processedAt}`);
+
+    const itemsHtml = hasQuery ? `
+      <div class="inv-items">
+        ${inv.itens.map((it) => `
+          <div class="inv-item-row">
+            <span class="inv-item-name">${(it.produto || '').toString().replace(/</g, '&lt;')}</span>
+            <span class="inv-item-qty mono">${it.quantidade} un</span>
+            <span class="inv-item-val mono">${fmtBRL(it.valor_total)}</span>
+          </div>
+        `).join('')}
+      </div>
+    ` : '';
+
+    return `
+      <div class="list-item" style="display:block;">
+        <div style="display:flex; justify-content:space-between;">
+          <span class="item-name">${inv.fornecedor}</span>
+          <span class="item-name mono" style="color: var(--green-deep);">${fmtBRL(inv.valorTotal)}</span>
+        </div>
+        <div class="item-sub">${subParts.join(' · ')}</div>
+        ${itemsHtml}
+      </div>
+    `;
+  }).join('');
+}
+
+function onInvoiceSearchInput() {
+  const input = document.getElementById('invoiceSearchInput');
+  const clearBtn = document.getElementById('invoiceSearchClearBtn');
+  clearBtn.style.display = input.value ? 'block' : 'none';
+  renderInvoices(filterInvoices(input.value));
+}
+
+function clearInvoiceSearch() {
+  const input = document.getElementById('invoiceSearchInput');
+  input.value = '';
+  document.getElementById('invoiceSearchClearBtn').style.display = 'none';
+  renderInvoices(allInvoices);
+  input.focus();
+}
+
 async function loadDashboard() {
   const res = await fetch('/api/data');
   const data = await res.json();
@@ -481,16 +570,9 @@ async function loadDashboard() {
   const searchInput = document.getElementById('searchInput');
   renderProducts(filterProducts(searchInput ? searchInput.value : ''));
 
-  const invCard = document.getElementById('invoicesListCard');
-  invCard.innerHTML = invoices.length ? invoices.map((inv) => `
-    <div class="list-item" style="display:block;">
-      <div style="display:flex; justify-content:space-between;">
-        <span class="item-name">${inv.fornecedor}</span>
-        <span class="item-name mono" style="color: var(--green-deep);">${fmtBRL(inv.valorTotal)}</span>
-      </div>
-      <div class="item-sub">${inv.itens.length} itens · processada em ${inv.processedAt}</div>
-    </div>
-  `).join('') : '<div class="empty">Nenhuma nota processada ainda.</div>';
+  allInvoices = invoices;
+  const invoiceSearchInput = document.getElementById('invoiceSearchInput');
+  renderInvoices(filterInvoices(invoiceSearchInput ? invoiceSearchInput.value : ''));
 }
 
 async function clearAllData() {
