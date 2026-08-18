@@ -61,6 +61,8 @@
   .remove-photo-x:hover { background: rgba(29,42,38,0.8); }
   .pdf-preview { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 34px 0; background: var(--paper-dim); border-radius: 10px; margin-bottom: 14px; }
   .pdf-name { font-size: 12px; color: var(--ink-dim); word-break: break-all; padding: 0 20px; }
+  .drag-active { border-color: var(--green) !important; background: var(--green-pale); }
+  .btn-discrete { background: var(--paper-dim); color: var(--ink-dim); font-size: 12px; padding: 8px 14px; }
   .alert { border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-top: 14px; text-align: left; }
   .alert-error { background: var(--red-pale); color: var(--red); }
   .alert-warn { background: var(--amber-pale); color: #8A5A1E; }
@@ -100,20 +102,21 @@
       </div>
     </div>
     <div class="tabs">
-      <button class="tab-btn active" id="tabBtnNova" onclick="setTab('nova')">Nova nota</button>
-      <button class="tab-btn" id="tabBtnDash" onclick="setTab('dashboard')">Estoque</button>
+      <button class="tab-btn" id="tabBtnNova" onclick="setTab('nova')">Nova nota</button>
+      <button class="tab-btn active" id="tabBtnDash" onclick="setTab('dashboard')">Estoque</button>
     </div>
   </div>
 </header>
 
 <main>
-  <section id="tabNova">
+  <section id="tabNova" class="hidden">
     <div id="captureCard" class="card dashed p20 center">
       <div id="previewWrap"></div>
       <div id="placeholderWrap">
         <div style="padding: 24px 0; color: var(--ink-dim);">
           <div style="font-size: 30px;">📷</div>
           <div style="font-size: 13px; margin-top: 10px;">Tire uma foto ou envie a imagem ou PDF da nota fiscal</div>
+          <div style="font-size: 11px; margin-top: 4px;">ou arraste o arquivo aqui</div>
         </div>
       </div>
 
@@ -157,7 +160,11 @@
     </div>
   </section>
 
-  <section id="tabDashboard" class="hidden">
+  <section id="tabDashboard">
+    <div class="row" style="justify-content: flex-end; margin-bottom: 14px;">
+      <button class="btn btn-discrete" onclick="setTab('nova')">+ Adicionar NF</button>
+    </div>
+
     <div class="stat-grid">
       <div class="card stat">
         <div class="stat-label">Produtos cadastrados</div>
@@ -245,6 +252,26 @@ function removePhoto() {
 document.getElementById('cameraInput').addEventListener('change', (e) => handleFile(e.target.files[0]));
 document.getElementById('galleryInput').addEventListener('change', (e) => handleFile(e.target.files[0]));
 
+const captureCard = document.getElementById('captureCard');
+['dragenter', 'dragover'].forEach((evt) => {
+  captureCard.addEventListener(evt, (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    captureCard.classList.add('drag-active');
+  });
+});
+['dragleave', 'drop'].forEach((evt) => {
+  captureCard.addEventListener(evt, (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    captureCard.classList.remove('drag-active');
+  });
+});
+captureCard.addEventListener('drop', (e) => {
+  const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (file) handleFile(file);
+});
+
 function showError(msg) {
   const el = document.getElementById('errorAlert');
   el.textContent = msg;
@@ -270,13 +297,19 @@ async function analyzeImage() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Erro desconhecido');
     extracted = data;
-    extracted.itens = (extracted.itens || []).map((it, i) => ({
-      _id: i,
-      produto: it.produto || '',
-      quantidade: Number(it.quantidade) || 0,
-      valor_unitario: Number(it.valor_unitario) || 0,
-      valor_total: Number(it.valor_total) || 0,
-    }));
+    extracted.itens = (extracted.itens || []).map((it, i) => {
+      const unidadesPorEmbalagem = Number(it.unidades_por_embalagem) || 1;
+      const valorUnitario = Number(it.valor_unitario) || 0;
+      return {
+        _id: i,
+        produto: it.produto || '',
+        quantidade: Number(it.quantidade) || 0,
+        valor_unitario: valorUnitario,
+        valor_total: Number(it.valor_total) || 0,
+        unidades_por_embalagem: unidadesPorEmbalagem,
+        valor_unidade: Number(it.valor_unidade) || (valorUnitario / unidadesPorEmbalagem) || 0,
+      };
+    });
     openReview();
   } catch (err) {
     console.error(err);
@@ -387,6 +420,7 @@ async function loadDashboard() {
       <div class="item-right">
         <div class="item-name mono">${p.stock} ${p.unit}</div>
         <div class="item-sub">último custo ${fmtBRL(p.lastCost)}</div>
+        <div class="item-sub">valor da unidade ${fmtBRL(p.lastUnitValue != null ? p.lastUnitValue : p.lastCost)}</div>
       </div>
     </div>
   `).join('') : '<div class="empty">Nenhum produto registrado ainda. Envie a foto de uma nota fiscal na aba "Nova nota".</div>';
@@ -408,6 +442,8 @@ async function clearAllData() {
   await fetch('/api/clear', { method: 'POST' });
   loadDashboard();
 }
+
+loadDashboard();
 </script>
 </body>
 </html>
